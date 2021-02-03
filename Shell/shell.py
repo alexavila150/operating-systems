@@ -19,17 +19,13 @@ class FileReader:
 
 class Runner:
     def __init__(self):
-        self.process_ids = []
+        pass
 
     def exec(self, args):
-        self.process_ids.append(os.fork())
-
-        if self.process_ids[-1] == 0:
-            os.execve('/usr/bin/' + args[0], args, os.environ)
-
-    def wait_for_all_processes(self):
-        for id in self.process_ids:
-            os.waitpid(id, 0)
+        rc = os.fork()
+        if rc == 0:
+            os.execv('/usr/bin/' + args[0], args)
+        #os.waitpid(rc, 0)
 
 class Shell:
     def __init__(self):
@@ -38,7 +34,7 @@ class Shell:
         self.reader = ConsoleReader()
         self.runner = Runner()
         self.valid_commands = {'ls', 'cat', 'grep', 'cd', 'mkdir', 'touch',
-         'rm', 'git'}
+         'rm', 'git', 'dir', 'python3', 'exit', 'which'}
 
     def run(self):
         self.is_running = True
@@ -55,6 +51,7 @@ class Shell:
             return
         if self.args[0] in self.valid_commands:
             self.runner.exec(self.args)
+            return
 
 
     def input_is_exit(self):

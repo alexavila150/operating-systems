@@ -8,7 +8,7 @@ class Runner:
         self.process_ids.append(os.fork())
 
         if self.process_ids[-1] == 0:
-            os.execve('/usr/bin/' + args[0], args, os.environ)
+            os.execv('/usr/bin/' + args[0], args)
     
     def wait_for_all_processes(self):
         for id in self.process_ids:
