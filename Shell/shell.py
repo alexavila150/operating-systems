@@ -34,22 +34,60 @@ class Runner:
     def exec_async(self, args):
         self.child_process_id = os.fork()
         if self.child_process_id == 0:
+            print('child process')
             try:
+                os.execv('/usr/bin/' + args[0], args)
+            except FileNotFoundError:
+                print('That is not a valid command')
+                os._exit(0)
+        print('parent process')
+
+    def exec_to_file(self, args, file_path):
+        self.child_process_id = os.fork()
+        if self.child_process_id == 0:
+            try:
+                fd = os.open(file_path, os.O_WRONLY | os.O_CREAT)
+                os.dup2(fd, 1)
                 os.execv('/usr/bin/' + args[0], args)
             except:
                 print('That is not a valid command')
                 os._exit(0)
 
-    def exec_to_file(self, args, file_path):
+    def exec_from_file(self, args, file_path):
         self.child_process_id = os.fork()
-        fd = os.open(file_path, os.O_WRONLY | os.O_CREAT)
-        os.dup2(fd, 1)
         if self.child_process_id == 0:
             try:
+                fd = os.open(file_path, os.O_RDONLY)
+                os.dup2(fd, 0)
                 os.execv('/usr/bin/' + args[0], args)
-            except:
+            except FileNotFoundError:
                 print('That is not a valid command')
                 os._exit(0)
+
+    def exec_pipe(self, args1, args2):
+        self.child_process_id = os.fork()
+        if self.child_process_id == 0:
+            try:
+                self._connect_pipe(args1, args2)
+            except FileNotFoundError:
+                print('That is not a valid command')
+                os._exit(0)
+
+
+    def _connect_pipe(self, args1, args2):
+        fd_read, fd_write = os.pipe()
+        os.set_inheritable(fd_read, True)
+        os.set_inheritable(fd_write, True)
+
+        rc = os.fork()
+        if rc == 0:
+            os.close(fd_read)
+            os.dup2(fd_write, 1)
+            os.execv('/usr/bin/' + args1[0], args1)
+        else:
+            os.close(fd_write)
+            os.dup2(fd_read, 0)
+            os.execv('/usr/bin/' + args2[0], args2)
 
 class Shell:
     def __init__(self, reader):
@@ -84,8 +122,24 @@ class Shell:
             args_string = ' '.join(self.args)
             splittled_list = args_string.split('>')
             command_args = splittled_list[0].split(' ')
-            path = splittled_list[1]
+            path = splittled_list[1].replace(' ', '')
             self.runner.exec_to_file(command_args, path)
+            return
+
+        if '<' in self.args:
+            args_string = ' '.join(self.args)
+            splittled_list = args_string.split('<')
+            command_args = splittled_list[0].split(' ')
+            path = splittled_list[1].replace(' ', '')
+            self.runner.exec_to_file(command_args, path)
+            return
+
+        if '|' in self.args:
+            args_string = ' '.join(self.args)
+            splittled_list = args_string.split('|')
+            command1_args = splittled_list[0].split()
+            command2_args = splittled_list[1].split()
+            self.runner.exec_pipe(command1_args, command2_args)
             return
 
         if self.input_starts_with('cd'):
@@ -94,8 +148,8 @@ class Shell:
             print(os.getcwd())
             return
 
-        if self.input_ends_with('$'):
-            self.args = self.args[:1]
+        if self.input_ends_with('&'):
+            self.args = self.args[:-1]
             self.runner.exec_async(self.args)
             return
 
