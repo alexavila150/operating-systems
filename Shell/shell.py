@@ -6,7 +6,7 @@ class ConsoleReader:
         pass
 
     def get_next_line(self):
-        return input(">>> ")
+        return input('$$$$ ')
 
 class FileReader:
     def __init__(self, filename):
@@ -17,7 +17,7 @@ class FileReader:
     def get_next_line(self):
         line = self.file_lines.pop(0)
         if not line.startswith('#'):
-            print('line', line)
+            print('line:', line)
             return line
 
         return ''
@@ -33,6 +33,17 @@ class Runner:
 
     def exec_async(self, args):
         self.child_process_id = os.fork()
+        if self.child_process_id == 0:
+            try:
+                os.execv('/usr/bin/' + args[0], args)
+            except:
+                print('That is not a valid command')
+                os._exit(0)
+
+    def exec_to_file(self, args, file_path):
+        self.child_process_id = os.fork()
+        fd = os.open(file_path, os.O_WRONLY | os.O_CREAT)
+        os.dup2(fd, 1)
         if self.child_process_id == 0:
             try:
                 os.execv('/usr/bin/' + args[0], args)
@@ -69,6 +80,20 @@ class Shell:
             self.exit();
             return
 
+        if '>' in self.args:
+            args_string = ' '.join(self.args)
+            splittled_list = args_string.split('>')
+            command_args = splittled_list[0].split(' ')
+            path = splittled_list[1]
+            self.runner.exec_to_file(command_args, path)
+            return
+
+        if self.input_starts_with('cd'):
+            path = ' '.join(self.args[1:])
+            os.chdir(path)
+            print(os.getcwd())
+            return
+
         if self.input_ends_with('$'):
             self.args = self.args[:1]
             self.runner.exec_async(self.args)
@@ -85,6 +110,9 @@ class Shell:
 
     def input_ends_with(self, word):
         return len(self.args) > 0 and self.args[-1] == word
+
+    def input_starts_with(self, word):
+        return len(self.args) > 0 and self.args[0] == word
 
 def get_reader():
     if len(sys.argv) == 1:

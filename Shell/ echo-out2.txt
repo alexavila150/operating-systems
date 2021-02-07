@@ -1,0 +1,10 @@
+That is not a valid command
+t is not a valid command
+line: ls nonExistentFile
+line: spinner.py 10000000 &
+That is not a valid command
+line: wc < echo-out1.txt
+0 0 0 total
+line: wc echo-out1.txt echo-out2.txt  | grep total
+0 0 0 total
+line: exit
