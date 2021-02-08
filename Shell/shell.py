@@ -34,13 +34,11 @@ class Runner:
     def exec_async(self, args):
         self.child_process_id = os.fork()
         if self.child_process_id == 0:
-            print('child process')
             try:
                 os.execv('/usr/bin/' + args[0], args)
             except FileNotFoundError:
                 print('That is not a valid command')
                 os._exit(0)
-        print('parent process')
 
     def exec_to_file(self, args, file_path):
         self.child_process_id = os.fork()
@@ -49,7 +47,7 @@ class Runner:
                 fd = os.open(file_path, os.O_WRONLY | os.O_CREAT)
                 os.dup2(fd, 1)
                 os.execv('/usr/bin/' + args[0], args)
-            except:
+            except FileNotFoundError:
                 print('That is not a valid command')
                 os._exit(0)
 
@@ -80,6 +78,7 @@ class Runner:
         os.set_inheritable(fd_write, True)
 
         rc = os.fork()
+
         if rc == 0:
             os.close(fd_read)
             os.dup2(fd_write, 1)
@@ -121,7 +120,7 @@ class Shell:
         if '>' in self.args:
             args_string = ' '.join(self.args)
             splittled_list = args_string.split('>')
-            command_args = splittled_list[0].split(' ')
+            command_args = splittled_list[0].split()
             path = splittled_list[1].replace(' ', '')
             self.runner.exec_to_file(command_args, path)
             return
@@ -129,9 +128,9 @@ class Shell:
         if '<' in self.args:
             args_string = ' '.join(self.args)
             splittled_list = args_string.split('<')
-            command_args = splittled_list[0].split(' ')
+            command_args = splittled_list[0].split()
             path = splittled_list[1].replace(' ', '')
-            self.runner.exec_to_file(command_args, path)
+            self.runner.exec_from_file(command_args, path)
             return
 
         if '|' in self.args:

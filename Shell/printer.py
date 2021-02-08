@@ -1,1 +1,1 @@
-print(int(input()) // 5) 
+print('your input:', input())
