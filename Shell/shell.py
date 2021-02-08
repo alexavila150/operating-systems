@@ -6,7 +6,13 @@ class ConsoleReader:
         pass
 
     def get_next_line(self):
-        return input('$$$$ ')
+        return input(self.get_PS1() + ' ')
+
+    def get_PS1(self):
+        try:
+            return os.environ['PS1']
+        except:
+            return '$$$$'
 
 class FileReader:
     def __init__(self, filename):
@@ -35,10 +41,18 @@ class Runner:
         self.child_process_id = os.fork()
         if self.child_process_id == 0:
             try:
-                os.execv('/usr/bin/' + args[0], args)
+                self.find_path_and_exec(args)
             except FileNotFoundError:
                 print('That is not a valid command')
                 os._exit(0)
+
+    def find_path_and_exec(self, args):
+        for dir in os.environ['PATH'].split(':'):
+            try:
+                os.execv(dir + '/' + args[0], args)
+            except:
+                pass
+        raise FileNotFoundError
 
     def exec_to_file(self, args, file_path):
         self.child_process_id = os.fork()
@@ -46,10 +60,11 @@ class Runner:
             try:
                 fd = os.open(file_path, os.O_WRONLY | os.O_CREAT)
                 os.dup2(fd, 1)
-                os.execv('/usr/bin/' + args[0], args)
+                self.find_path_and_exec(args)
             except FileNotFoundError:
                 print('That is not a valid command')
                 os._exit(0)
+        os.waitpid(self.child_process_id, 0)
 
     def exec_from_file(self, args, file_path):
         self.child_process_id = os.fork()
@@ -57,22 +72,26 @@ class Runner:
             try:
                 fd = os.open(file_path, os.O_RDONLY)
                 os.dup2(fd, 0)
-                os.execv('/usr/bin/' + args[0], args)
+                self.find_path_and_exec(args)
             except FileNotFoundError:
                 print('That is not a valid command')
                 os._exit(0)
+        os.waitpid(self.child_process_id, 0)
 
     def exec_pipe(self, args1, args2):
         self.child_process_id = os.fork()
         if self.child_process_id == 0:
             try:
-                self._connect_pipe(args1, args2)
+                self._connect_pipe_and_exec(args1, args2)
             except FileNotFoundError:
-                print('That is not a valid command')
+                try:
+                    print("That is not a valid command")
+                except:
+                    pass
                 os._exit(0)
+        os.waitpid(self.child_process_id, 0)
 
-
-    def _connect_pipe(self, args1, args2):
+    def _connect_pipe_and_exec(self, args1, args2):
         fd_read, fd_write = os.pipe()
         os.set_inheritable(fd_read, True)
         os.set_inheritable(fd_write, True)
@@ -82,11 +101,12 @@ class Runner:
         if rc == 0:
             os.close(fd_read)
             os.dup2(fd_write, 1)
-            os.execv('/usr/bin/' + args1[0], args1)
+            self.find_path_and_exec(args1)
         else:
             os.close(fd_write)
             os.dup2(fd_read, 0)
-            os.execv('/usr/bin/' + args2[0], args2)
+            self.find_path_and_exec(args2)
+        os.waitpid(rc, 0)
 
 class Shell:
     def __init__(self, reader):
@@ -143,8 +163,12 @@ class Shell:
 
         if self.input_starts_with('cd'):
             path = ' '.join(self.args[1:])
-            os.chdir(path)
-            print(os.getcwd())
+            try:
+                os.chdir(path)
+                print(os.getcwd())
+            except FileNotFoundError:
+                print('That path does not exists')
+
             return
 
         if self.input_ends_with('&'):
@@ -177,7 +201,7 @@ def get_reader():
     raise ValueError
 
 def main():
-    print("Hello world")
+    print("Welcome to my shell")
     try:
         reader = get_reader()
         shell = Shell(reader)
